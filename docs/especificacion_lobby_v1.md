@@ -33,6 +33,14 @@ Las interacciones con el Consejo son **encomiendas programadas**, a largo plazo:
 
 Reglas: despierto y dormido deben durar al menos 2 h cada uno; las cuentas se hacen en tiempo absoluto (una noche con cambio de hora dura lo que dura de verdad); un nodo caído o con error muestra su estado por encima de la fase. Cada cambio de fase se anota en el registro del lobby. API: `GET/PUT /api/cycle`; la instantánea de `/api/pets` y del SSE incluye `cycle`. La lentitud de los modelos (3 tok/s en la Pi 4) es parte del juego: se encarga de día y se recoge por la mañana.
 
+### Encomiendas (primera versión)
+
+Una encomienda es un encargo de texto a una mascota concreta: título (≤ 60 caracteres) y encargo (≤ 600, con las entradas explícitas, porque la mascota no ve nada más). El ejecutor (`runner.py`, un gancho del monitor) solo arranca encomiendas de NOCHE, la más antigua de cada mascota, **una a la vez por nodo** (cada nodo carga un solo modelo) y solo si su nodo está en línea; un nodo caído no gasta intentos. Respuesta de hasta 400 tokens con `num_ctx 2048` y `think:false`; el prompt de sistema es el de la personalidad, con la regla de longitud cambiada a «menos de 300 palabras». Si falla, vuelve a la cola con espera creciente (5 min × intento) y queda **fallida** al tercer intento (se puede reintentar). Lo que quedó «en marcha» al reiniciar el lobby vuelve a la cola. Al AMANECER la mascota con entregas sin ver celebra («ENTREGA LISTA»). Kakapo (embeddings) y el Armiño no aceptan encomiendas de texto.
+
+Privacidad: el registro del lobby solo anota «encomienda #N», nunca el título ni el encargo, y el formulario recuerda que no se escriban datos de pacientes ni clínicos (viajan a los nodos). API: `GET/POST /api/tasks`, `POST /api/tasks/<id>/seen|retry`, `DELETE /api/tasks/<id>`; cada mascota de la instantánea trae `tasks: {queued, running, unseen, failed}`.
+
+Pendiente: dependencias entre encomiendas y el roadmap (§3, H6), acciones JSON acotadas como `{"need":"search"}` (H7) y avance por tokens en streaming.
+
 ## 3. Roadmap: micro-tareas para modelos pequeños
 
 Cada tarea debe caber en un modelo de 0.6B–4B con contexto de 2k. Las reglas son: un solo objetivo por tarea, salida de hasta unos 400 tokens, entradas explícitas (nada de "mira todo el historial") y un criterio de listo de una línea que el Erizo pueda comprobar. Si una tarea crece, el Erizo la parte en dos antes de que empiece.

@@ -85,7 +85,8 @@ SPECIES = {
     },
 }
 
-LIMITS = {"name_max": 12, "branch_budget": 3, "branch_max_at_start": 3, "branch_max": 5, "voice_max": 280}
+LIMITS = {"name_max": 12, "branch_budget": 3, "branch_max_at_start": 3, "branch_max": 5, "voice_max": 280,
+          "task_title_max": 60, "task_prompt_max": 600, "task_output_tokens": 400}
 
 
 def public_catalog() -> dict:

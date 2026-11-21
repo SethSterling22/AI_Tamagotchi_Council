@@ -1,16 +1,22 @@
 /* Tablero: una habitación por mascota, con su estado de conexión real. */
 import {P, WALL, PET_COL, gfx, R, PX, box, T, TW, TC, clip, spr, tear, scan} from './pixel.js';
 import {PHASE, phaseIcon, tintRoom} from './cycle.js';
+import {parcelIcon} from './tasks.js';
 
 const STATE_LABEL = {pending: 'CONECTANDO…', online: 'EN ESPERA', glitch: 'SIN SEÑAL', error: 'ERROR'};
 // Son nocturnas: de día duermen (se las puede despertar para planificar); de noche están de guardia para sus encomiendas.
 const PHASE_LABEL = {dia: 'DESCANSA', atardecer: 'DESPIERTA', noche: 'DE GUARDIA', amanecer: 'AMANECE'};
+const WORK_ACT = {buho: 'read', erizo: 'read'};  // investigar y revisar = leer; construir y conversar = teclear
+const mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 export function actionFor(pet, phase) {
   const s = pet.status || {state: 'pending'};
   if (s.state === 'pending') return 'sleep';
   if (s.state === 'glitch') return 'glitch';
   if (s.state === 'error') return 'error';
   if (s.activity === 'think') return 'think';
+  const tk = pet.tasks || {};
+  if (tk.running) return WORK_ACT[pet.species] || 'type';
+  if (phase === 'amanecer' && tk.unseen) return 'celebrate';
   return phase === 'dia' ? 'sleep' : 'idle';
 }
 export function eventText(e, pets) {
@@ -20,7 +26,7 @@ export function eventText(e, pets) {
   return who + '> ' + msg;
 }
 
-export function createBoard({onAdd, onOpen, onCycle}) {
+export function createBoard({onAdd, onOpen, onCycle, onTasks}) {
   let mx = -1, my = -1, HIT = [], page = 0, ACTS = [];
   const cv = gfx.cv;
   const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * gfx.W / r.width, (e.clientY - r.top) * gfx.H / r.height]; };
@@ -64,9 +70,17 @@ export function createBoard({onAdd, onOpen, onCycle}) {
       box(x + 3, y + 3, TW(clip(pet.name, 10)) + 7, 12, P.void, col); T(clip(pet.name, 10), x + 6, y + 3, col, true);
       const rl = clip(pet.species === 'kakapo' ? 'EMBED' : pet.model, Math.floor((w - TW(clip(pet.name, 10)) - 20) / 6));
       T(rl, x + w - 6 - TW(rl), y + 3, P.gray);
-      const lab = s.state === 'pending' ? 'CONECTANDO…' : (act === 'think' ? 'PENSANDO' : (cy ? PHASE_LABEL[cy.phase] : 'EN ESPERA'));
-      T(lab, x + 5, y + 17, s.state === 'pending' ? P.sky : P.white);
-      if (s.latency_ms != null && s.state === 'online') T(s.latency_ms + 'ms', x + w - 6 - TW(s.latency_ms + 'ms'), y + 17, P.green);
+      const tk = pet.tasks || {};
+      // derecha: entregas sin ver > encomiendas en cola > latencia
+      const right = tk.unseen ? '★' + tk.unseen : (tk.queued ? 'COLA ' + tk.queued : (s.latency_ms != null && s.state === 'online' ? s.latency_ms + 'ms' : ''));
+      const fit = Math.floor((w - 11 - (right ? TW(right) + 6 : 0)) / 6);
+      let lab = s.state === 'pending' ? 'CONECTANDO…' : (act === 'think' ? 'PENSANDO' : (cy ? PHASE_LABEL[cy.phase] : 'EN ESPERA'));
+      if (tk.running && act !== 'think') {
+        lab = 'TRABAJANDO ' + (cy ? mmss(Math.max(0, cy.serverNow() - tk.running.started_at)) : '');
+        if (lab.length > fit) lab = 'TRABAJANDO';
+      } else if (act === 'celebrate') lab = 'ENTREGA LISTA';
+      T(clip(lab, fit), x + 5, y + 17, s.state === 'pending' ? P.sky : (tk.running ? P.cyan : (act === 'celebrate' ? P.yellow : P.white)));
+      if (right) T(right, x + w - 6 - TW(right), y + 17, tk.unseen ? P.yellow : (tk.queued ? P.cyan : P.green));
     }
     // barra de energía + nivel
     R(x + 6, y + h - 6, 40, 3, '#0e0f1a'); R(x + 6, y + h - 6, Math.round(40 * ((pet.stats || {}).energy || 0) / 100), 3, bad ? P.red : col);
@@ -97,6 +111,20 @@ export function createBoard({onAdd, onOpen, onCycle}) {
     HIT.push({x, y: 0, w, h: 15, fn: onCycle, label: 'btn:cycle'});
   }
 
+  // botón de encomiendas (termina en «right»): paquete + texto (horizontal) + aviso de entregas o cola; devuelve su x
+  function tasksBtn(pets, right, portrait, t) {
+    const unseen = pets.reduce((a, p) => a + ((p.tasks || {}).unseen || 0), 0);
+    const queue = pets.reduce((a, p) => a + ((p.tasks || {}).queued || 0) + ((p.tasks || {}).running ? 1 : 0), 0);
+    const badge = unseen ? '★' + unseen : (queue ? String(queue) : ''), label = portrait ? '' : 'ENCOMIENDAS';
+    const txt = label + (label && badge ? ' ' : ''), w = 16 + TW(txt + badge), x = right - w, hov = over(x, 1, w, 14);
+    box(x, 1, w, 14, hov ? '#2f3560' : '#1a1c2c', unseen && Math.floor(t * 2) % 2 ? P.yellow : (hov ? P.cyan : P.slate));
+    parcelIcon(x + 4, 4, P.orange);
+    if (txt) T(txt, x + 14, 1, P.white, true);
+    if (badge) T(badge, x + 14 + TW(txt), 1, unseen ? P.yellow : P.cyan, true);
+    HIT.push({x, y: 1, w, h: 14, fn: onTasks, label: 'btn:tasks'});
+    return x;
+  }
+
   function draw(t, st) {
     HIT = []; ACTS = []; const W = gfx.W, H = gfx.H, portrait = H > W, cy = st.cycle;
     R(0, 0, W, H, '#12131f');
@@ -108,18 +136,23 @@ export function createBoard({onAdd, onOpen, onCycle}) {
     const logH = portrait ? 46 : 40, top = 18, gap = 4;
     const rw = Math.floor((W - 8 - gap * (cols - 1)) / cols), rh = Math.floor((H - top - logH - 6 - gap * (rows - 1)) / rows);
     const slots = pets.length + 1, pages = Math.max(1, Math.ceil(slots / per)); if (page >= pages) page = pages - 1;
-    // cabecera: pager y botón añadir
-    btn('+ MASCOTA', W - 70, 1, 66, 14, onAdd, 'btn:add');
+    // cabecera: añadir mascota, encomiendas, paginador; luego estado y fase del ciclo con lo que quepa
+    const addW = portrait ? 14 : 66;
+    btn(portrait ? '+' : '+ MASCOTA', W - 4 - addW, 1, addW, 14, onAdd, 'btn:add');
+    const tx = tasksBtn(pets, W - 8 - addW, portrait, t);
+    let btnLeft = tx - 2;
     if (pages > 1) {
-      btn('‹', W - 108, 1, 14, 14, () => { page = (page + pages - 1) % pages; }, 'pg:prev');
-      TC((page + 1) + '/' + pages, W - 80 - 14, 1, P.gray); btn('›', W - 90 + 0, 1, 14, 14, () => { page = (page + 1) % pages; }, 'pg:next');
+      const px = tx - 52;
+      btn('‹', px, 1, 14, 14, () => { page = (page + pages - 1) % pages; }, 'pg:prev');
+      TC((page + 1) + '/' + pages, px + 24, 1, P.gray); btn('›', px + 34, 1, 14, 14, () => { page = (page + 1) % pages; }, 'pg:next');
+      btnLeft = px - 2;
     }
     const ok = pets.filter(p => (p.status || {}).state === 'online').length;
-    const btnLeft = W - 72 - (pages > 1 ? 38 : 0), avail = Math.floor((btnLeft - 79 - (cy ? 46 : 0)) / 6);
-    let tag = st.offline ? 'LOBBY SIN SEÑAL' : ok + '/' + pets.length + ' EN LÍNEA';
-    if (tag.length > avail) tag = st.offline ? 'SIN SEÑAL' : ok + '/' + pets.length;
+    const full = st.offline ? 'LOBBY SIN SEÑAL' : ok + '/' + pets.length + ' EN LÍNEA', short = st.offline ? 'SIN SEÑAL' : ok + '/' + pets.length;
+    const chipFull = cy ? 15 + TW(cy.label + ' ' + cy.localTime()) : 0;
+    const tag = 79 + TW(full) + 5 + chipFull <= btnLeft ? full : short;
     T(tag, 5 + 11 * 6 + 8, 1, st.offline ? P.red : (pets.length && ok === pets.length ? P.green : P.gray));
-    if (cy) cycleChip(cy, 79 + TW(tag) + 5, btnLeft - 2, t);
+    if (cy) cycleChip(cy, 79 + TW(tag) + 5, btnLeft, t);
     for (let i = 0; i < per; i++) {
       const idx = page * per + i, x = 4 + (i % cols) * (rw + gap), y = top + Math.floor(i / cols) * (rh + gap);
       if (idx < pets.length) room(pets[idx], x, y, rw, rh, t, cy);

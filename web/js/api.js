@@ -22,6 +22,11 @@ export const api = {
   persona: b => j('POST', 'api/persona-preview', b),
   cycle: () => j('GET', 'api/cycle'),
   setCycle: b => j('PUT', 'api/cycle', b),
+  tasks: () => j('GET', 'api/tasks'),
+  createTask: b => j('POST', 'api/tasks', b),
+  seenTask: id => j('POST', `api/tasks/${id}/seen`),
+  retryTask: id => j('POST', `api/tasks/${id}/retry`),
+  deleteTask: id => j('DELETE', 'api/tasks/' + id),
 };
 /* Tiempo real: SSE con reintento; si falla, sondeo cada 5 s. */
 export function subscribe(onState) {

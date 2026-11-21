@@ -3,6 +3,7 @@ import {setup, loadAssets, gfx} from './pixel.js';
 import {createBoard} from './board.js';
 import {createPanel, tickMinis} from './panel.js';
 import {clock, createCycleSheet} from './cycle.js';
+import {createTaskSheet} from './tasks.js';
 
 const cv = document.getElementById('c');
 const portrait = () => window.innerHeight > window.innerWidth * 1.05;
@@ -27,12 +28,14 @@ async function boot() {
   const cycleSheet = createCycleSheet(document.getElementById('cycle-panel'), {
     onSaved: st => { STATE.cycle = clock(st, Date.now()); refreshEvents(); },
   });
-  board = createBoard({onAdd: () => panel.open(null), onOpen: pet => panel.open(pet), onCycle: () => STATE.cycle && cycleSheet.open(STATE.cycle)});
+  const taskSheet = createTaskSheet(document.getElementById('tasks-panel'), catalog, {getState: () => STATE});
+  board = createBoard({onAdd: () => panel.open(null), onOpen: pet => panel.open(pet), onCycle: () => STATE.cycle && cycleSheet.open(STATE.cycle),
+    onTasks: () => taskSheet.open()});
   window.addEventListener('resize', layout);
   subscribe((d, err) => {
     if (!d) { STATE.offline = true; return; }
     STATE.offline = false; STATE.pets = d.pets; if (d.cycle) STATE.cycle = clock(d.cycle, Date.now());
-    if (d.version !== STATE.version) { STATE.version = d.version; refreshEvents(); }
+    if (d.version !== STATE.version) { STATE.version = d.version; refreshEvents(); if (taskSheet.isOpen()) taskSheet.refresh(); }
   });
   (function frame() {
     const t = performance.now() / 1000;

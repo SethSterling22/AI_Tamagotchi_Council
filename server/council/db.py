@@ -37,6 +37,17 @@ CREATE TABLE IF NOT EXISTS events(
 );
 CREATE INDEX IF NOT EXISTS ev_ts ON events(ts DESC);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tasks(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  title TEXT NOT NULL, prompt TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued',            -- queued | running | done | failed
+  created_at REAL NOT NULL, started_at REAL, finished_at REAL,
+  attempts INTEGER NOT NULL DEFAULT 0, next_try_at REAL NOT NULL DEFAULT 0,
+  result TEXT, error TEXT, tokens INTEGER, ms INTEGER, tps REAL, truncated INTEGER NOT NULL DEFAULT 0,
+  seen_at REAL
+);
+CREATE INDEX IF NOT EXISTS tasks_pet ON tasks(pet_id, status);
 """
 _local = threading.local()
 _open_lock = threading.Lock()  # pasar a WAL con otra conexión abriendo a la vez da «database is locked» sin esperar
@@ -174,3 +185,113 @@ def set_setting(key: str, value):
     c.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
               (key, json.dumps(value)))
     c.commit()
+
+
+# ---------------------------------------------------------------- encomiendas
+TASK_SELECT = "SELECT t.*, p.name AS pet_name, p.species AS pet_species FROM tasks t JOIN pets p ON p.id = t.pet_id"
+
+
+def _task(r) -> dict:
+    d = dict(r)
+    d["error"] = json.loads(d["error"]) if d["error"] else None
+    d["truncated"] = bool(d["truncated"])
+    return d
+
+
+def insert_task(pet_id: int, title: str, prompt: str) -> int:
+    c = conn()
+    cur = c.execute("INSERT INTO tasks(pet_id,title,prompt,created_at) VALUES(?,?,?,?)", (pet_id, title, prompt, time.time()))
+    c.commit()
+    return cur.lastrowid
+
+
+def get_task(task_id: int):
+    r = conn().execute(TASK_SELECT + " WHERE t.id=?", (task_id,)).fetchone()
+    return _task(r) if r else None
+
+
+def list_tasks(status=None, limit=100):
+    q, a = TASK_SELECT, ()
+    if status:
+        q, a = q + " WHERE t.status=?", (status,)
+    return [_task(r) for r in conn().execute(q + " ORDER BY t.id DESC LIMIT ?", (*a, limit))]
+
+
+def next_tasks(now: float):
+    """La encomienda más antigua lista de cada mascota que no tenga otra en marcha."""
+    return [_task(r) for r in conn().execute(TASK_SELECT + """
+        WHERE t.status='queued' AND t.next_try_at<=?
+          AND NOT EXISTS (SELECT 1 FROM tasks r WHERE r.pet_id=t.pet_id AND r.status='running')
+          AND t.id = (SELECT MIN(q.id) FROM tasks q WHERE q.pet_id=t.pet_id AND q.status='queued' AND q.next_try_at<=?)
+        ORDER BY t.id""", (now, now))]
+
+
+def start_task(task_id: int, now: float) -> bool:
+    c = conn()
+    n = c.execute("UPDATE tasks SET status='running', started_at=? WHERE id=? AND status='queued'", (now, task_id)).rowcount
+    c.commit()
+    return n == 1
+
+
+def finish_task(task_id: int, now: float, r: dict):
+    c = conn()
+    c.execute("""UPDATE tasks SET status='done', finished_at=?, attempts=attempts+1, result=?, error=NULL,
+                 tokens=?, ms=?, tps=?, truncated=? WHERE id=?""",
+              (now, r["text"], r.get("tokens"), r.get("ms"), r.get("tps"), int(bool(r.get("truncated"))), task_id))
+    c.commit()
+
+
+def fail_task(task_id: int, now: float, error: dict, max_attempts: int, backoff: float) -> dict:
+    """Cuenta el intento; vuelve a la cola con espera creciente o queda fallida al agotar los intentos."""
+    c = conn()
+    att = c.execute("SELECT attempts FROM tasks WHERE id=?", (task_id,)).fetchone()["attempts"] + 1
+    final = att >= max_attempts
+    c.execute("UPDATE tasks SET status=?, attempts=?, error=?, finished_at=?, next_try_at=? WHERE id=?",
+              ("failed" if final else "queued", att, json.dumps(error), now if final else None,
+               0 if final else now + backoff * att, task_id))
+    c.commit()
+    return {"attempts": att, "final": final}
+
+
+def requeue_running() -> int:
+    """Al arrancar el lobby, lo que quedó «en marcha» se perdió con el proceso: vuelve a la cola."""
+    c = conn()
+    n = c.execute("UPDATE tasks SET status='queued', started_at=NULL WHERE status='running'").rowcount
+    c.commit()
+    return n
+
+
+def retry_task(task_id: int) -> bool:
+    c = conn()
+    n = c.execute("""UPDATE tasks SET status='queued', attempts=0, next_try_at=0, error=NULL, finished_at=NULL
+                     WHERE id=? AND status='failed'""", (task_id,)).rowcount
+    c.commit()
+    return n == 1
+
+
+def mark_seen(task_id: int, now: float):
+    c = conn()
+    c.execute("UPDATE tasks SET seen_at=COALESCE(seen_at, ?) WHERE id=? AND status='done'", (now, task_id))
+    c.commit()
+
+
+def delete_task(task_id: int) -> bool:
+    c = conn()
+    n = c.execute("DELETE FROM tasks WHERE id=? AND status!='running'", (task_id,)).rowcount
+    c.commit()
+    return n == 1
+
+
+def task_summary() -> dict:
+    out = {}
+    for r in conn().execute("SELECT id, pet_id, status, started_at, seen_at FROM tasks"):
+        s = out.setdefault(r["pet_id"], {"queued": 0, "running": None, "unseen": 0, "failed": 0})
+        if r["status"] == "queued":
+            s["queued"] += 1
+        elif r["status"] == "running":
+            s["running"] = {"id": r["id"], "started_at": r["started_at"]}
+        elif r["status"] == "failed":
+            s["failed"] += 1
+        elif r["seen_at"] is None:
+            s["unseen"] += 1
+    return out

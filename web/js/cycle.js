@@ -21,6 +21,7 @@ export function clock(cy, recvMs) {
     serverNow: () => Date.now() / 1000 + off,
     progress() { const n = this.serverNow(); return Math.max(0, Math.min(1, (n - cy.started_at) / (cy.ends_at - cy.started_at))); },
     localTime() { return fmt ? fmt.format(new Date(this.serverNow() * 1000)) : cy.local_time; },
+    fmtTime(ts) { return fmt ? fmt.format(new Date(ts * 1000)) : new Date(ts * 1000).toLocaleTimeString(); },
   };
 }
 function tzFormat(tz) {
