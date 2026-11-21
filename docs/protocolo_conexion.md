@@ -55,5 +55,5 @@ Una generación mínima (`num_predict 64`, `num_ctx 2048`, `think:false`) con el
 ## 8. Pendiente / siguiente
 
 - Latido iniciado por el nodo (MQTT) además del sondeo, para saber qué está *haciendo* (SEB-27). Hoy el lobby solo sabe "contesta / no contesta".
-- ~~Verificar con Ollama real los campos usados.~~ Hecho el 21-nov-2026 con Ollama 0.40.16 (Pi 4) y 0.31.1 (Termux): `/api/version`, `/api/tags` y `/api/chat` con `think:false` coinciden. Falta una respuesta correcta de `/api/embed` (ningún nodo tiene aún el modelo de embeddings). Al generar sin el modelo, Ollama responde HTTP 404 `model '…' not found` → se clasifica como `MODEL_MISSING` (detalle en `HANDOFF.md` §2b).
+- ~~Verificar con Ollama real los campos usados.~~ Hecho el 21-nov-2026 con Ollama 0.40.16 (Pi 4) y 0.31.1 (Termux): `/api/version`, `/api/tags` y `/api/chat` con `think:false` coinciden. Falta una respuesta correcta de `/api/embed` (ningún nodo tiene aún el modelo de embeddings). Al generar sin el modelo, Ollama responde HTTP 404 `model '…' not found` → se clasifica como `MODEL_MISSING` (detalle en `docs/estado.md` §3).
 - Ollama expulsa el modelo de RAM tras `OLLAMA_KEEP_ALIVE`; un sondeo ligero no lo recarga, así que "en línea" no garantiza "modelo cargado".

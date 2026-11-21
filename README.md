@@ -7,4 +7,4 @@ pip install -r server/requirements.txt pytest playwright
 make test && make dev      # http://localhost:8080
 ```
 
-Empieza por **`HANDOFF.md`** (estado, decisiones, preguntas abiertas) y **`CLAUDE.md`** (reglas para trabajar el código). Hitos en `docs/hitos.md`.
+Empieza por **`docs/estado.md`** (estado, mediciones, decisiones, preguntas abiertas) y **`CLAUDE.md`** (reglas para trabajar el código). Hitos en `docs/hitos.md`.
