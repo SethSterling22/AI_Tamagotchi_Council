@@ -1,8 +1,8 @@
 # Hitos (en orden)
 
-Cada hito termina con pruebas verdes y `HANDOFF.md` actualizado. Referencia visual: la pantalla equivalente en `prototype/dist/lobby_concilio_v1.html` (escritorio) y `_movil.html`.
+Cada hito termina con pruebas verdes y `docs/estado.md` actualizado. Referencia visual: la pantalla equivalente en `prototype/dist/lobby_concilio_v1.html` (escritorio) y `_movil.html`.
 
-## H0 · Esqueleto + ciclo de conexión — **hecho** (ver HANDOFF §2)
+## H0 · Esqueleto + ciclo de conexión — **hecho** (ver `docs/estado.md` §2)
 Aceptación cumplida: dar de alta una mascota con host/puerto/personaje/nombre/personalidad/stats, ver su estado real, editarla, saludarla y borrarla.
 
 ## H1 · Primer contacto con hardware real
