@@ -9,7 +9,7 @@ Seis mascotas, cada una con un trabajo en una línea de producción de IA. Apren
 | Mascota | Rol | Equipo | Modelo (sugerido) | Nombre de host |
 |---|---|---|---|---|
 | Lobby | recepción, estado, datos | Raspberry Pi 2 B v1.1 (32 bits, 1 GB, **sin Wi-Fi**: cable) | no ejecuta modelos | `lobby` |
-| Ocelote | Constructor | Raspberry Pi 4 B | qwen3:4b (8 GB) o qwen3:1.7b | `ocelote` |
+| Ocelote | Constructor | Raspberry Pi 4 B Rev 1.4 (4 GB) | qwen3:1.7b (medido) | `ocelote` |
 | Búho | Investigador | Galaxy A21s (Termux) | qwen3:0.6b | `buho` |
 | Erizo | Crítico | Raspberry Pi 3 B v1.2 | qwen3:0.6b | `erizo` |
 | Panda rojo | Anfitrión | Raspberry Pi 3 B v1.2 | qwen3:0.6b | `panda` |
@@ -41,7 +41,7 @@ Sondeado desde el portátil de desarrollo, que está en la misma tailnet (`counc
 
 | Nodo | Tailscale | Ollama | Modelos | Resultado |
 |---|---|---|---|---|
-| ocelote (Pi 4) | 100.126.26.11 | 0.40.16 | qwen3:1.7b | sondeo 32 ms; saludo OK, **3,3 tok/s**, carga del modelo ≈35 s, primer saludo 49 s |
+| ocelote (Pi 4, 4 GB) | 100.126.26.11 | 0.40.16 | qwen3:1.7b | sondeo 32 ms; saludo OK, **3,3 tok/s**, carga del modelo ≈35 s, primer saludo 49 s. Inventario: 3796 MB de RAM, 2 GB de swap, 48 GB libres, 38,5 °C, `throttled=0x0`; benchmark 3,2 tok/s de generación |
 | qwen-a21s (Galaxy A21s) | 100.104.48.53 | 0.31.1 | qwen2.5:0.5b, qwen2.5:1.5b | saludo OK con qwen2.5:0.5b, **15,7 tok/s**, 12 s |
 | qwen-a03s (Galaxy A03s) | 100.123.66.1 | 0.31.1 | qwen2.5:0.5b | saludo OK con qwen2.5:0.5b, **15,2 tok/s**, 15 s |
 | lobby, panda, erizo | 100.68.15.108 · 100.68.253.40 · 100.81.114.43 | – | – | apagados (`ETIMEDOUT`) |
@@ -53,7 +53,7 @@ Sondeado desde el portátil de desarrollo, que está en la misma tailnet (`counc
 **Pendiente / no verificado:**
 - `/api/embed` con un modelo de embeddings real (ningún nodo lo tiene aún).
 - Los celulares usan **qwen2.5** y Ollama 0.31.1, no qwen3; los nombres de Tailscale (`qwen-a21s`, `qwen-a03s`) no coinciden con `buho`/`kakapo` de `species.py`, y el handoff decía que Kakapo era un Galaxy A12. Falta que Sebastian decida qué celular es cada mascota y qué modelo lleva.
-- Ocelote tiene qwen3:1.7b; `species.py` sugiere qwen3:4b (falta saber la RAM de esa Pi 4).
+- ~~Modelo de Ocelote.~~ Su Pi 4 tiene 4 GB: se queda con qwen3:1.7b y `species.py` ya lo sugiere (qwen3:4b solo con 8 GB, sin probar).
 - Pi 3 (Panda, Erizo) y el lobby en la Pi 2 B: sin probar (apagados).
 
 **Problemas del handoff corregidos (21-nov-2026):**
