@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
-from . import db, persona, probe as P
+from . import cycle, db, persona, probe as P
 from .monitor import Monitor
 from .species import LIMITS, SPECIES, public_catalog
 
@@ -93,6 +94,7 @@ def create_app(monitor: Monitor | None = None, autostart=True) -> Flask:
         interval_ok=float(os.environ.get("COUNCIL_INTERVAL_OK", 15)),
         interval_bad=float(os.environ.get("COUNCIL_INTERVAL_BAD", 5)))
     app.config["monitor"] = mon
+    mon.hooks.append(cycle.Watcher(on_change=lambda st: mon.bump()).tick)
 
     @app.errorhandler(ApiError)
     def _api_err(e):
@@ -112,6 +114,9 @@ def create_app(monitor: Monitor | None = None, autostart=True) -> Flask:
 
     def with_status(pid):
         return next(p for p in mon.snapshot() if p["id"] == pid)
+
+    def payload():
+        return {"pets": mon.snapshot(), "version": mon.version, "cycle": cycle.state(time.time())}
 
     # ---------------------------------------------------------------- catálogo / salud
     @app.get("/api/health")
@@ -149,7 +154,7 @@ def create_app(monitor: Monitor | None = None, autostart=True) -> Flask:
     # ---------------------------------------------------------------- mascotas
     @app.get("/api/pets")
     def pets():
-        return jsonify({"pets": mon.snapshot(), "version": mon.version})
+        return jsonify(payload())
 
     @app.post("/api/pets")
     def create_pet():
@@ -218,6 +223,22 @@ def create_app(monitor: Monitor | None = None, autostart=True) -> Flask:
         pid = request.args.get("pet", type=int)
         return jsonify({"events": db.events(min(request.args.get("limit", 50, type=int), 200), pid)})
 
+    # ---------------------------------------------------------------- ciclo día/noche
+    @app.get("/api/cycle")
+    def get_cycle():
+        return jsonify(cycle.state(time.time()))
+
+    @app.put("/api/cycle")
+    def put_cycle():
+        try:
+            sch = cycle.validate(request.get_json(silent=True) or {})
+        except cycle.CycleError as e:
+            raise ApiError("BAD_CYCLE", e.message, e.field)
+        db.set_setting("cycle", sch)
+        db.add_event(None, "cycle_edited", f"despiertas {sch['wake']} · duermes {sch['sleep']} · {sch['tz']}")
+        mon.bump()
+        return jsonify(cycle.state(time.time()))
+
     # ---------------------------------------------------------------- tiempo real
     @app.get("/api/stream")
     def stream():
@@ -232,7 +253,7 @@ def create_app(monitor: Monitor | None = None, autostart=True) -> Flask:
                     yield ": keepalive\n\n"
                     continue
                 seen = ver
-                yield "data: " + json.dumps({"pets": mon.snapshot(), "version": ver}) + "\n\n"
+                yield "data: " + json.dumps(payload()) + "\n\n"
         return Response(gen(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     # ---------------------------------------------------------------- web estática

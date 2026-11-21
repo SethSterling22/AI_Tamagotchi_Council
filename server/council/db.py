@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS events(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL, pet_id INTEGER, kind TEXT NOT NULL, detail TEXT
 );
 CREATE INDEX IF NOT EXISTS ev_ts ON events(ts DESC);
+CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
 _local = threading.local()
 _open_lock = threading.Lock()  # pasar a WAL con otra conexión abriendo a la vez da «database is locked» sin esperar
@@ -161,3 +162,15 @@ def events(limit=50, pet_id=None):
     if pet_id:
         q, a = q + " WHERE pet_id=?", (pet_id,)
     return [dict(r) for r in c.execute(q + " ORDER BY id DESC LIMIT ?", (*a, limit))]
+
+
+def get_setting(key: str):
+    r = conn().execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    return json.loads(r["value"]) if r else None
+
+
+def set_setting(key: str, value):
+    c = conn()
+    c.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+              (key, json.dumps(value)))
+    c.commit()

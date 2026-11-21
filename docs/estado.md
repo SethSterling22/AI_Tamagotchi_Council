@@ -18,11 +18,12 @@ Seis mascotas, cada una con un trabajo en una línea de producción de IA. Apren
 
 ## 2. Qué está hecho
 
-**Hecho y probado** (27 pruebas pytest + e2e con Playwright, contra un Ollama falso):
+**Hecho y probado** (48 pruebas pytest + e2e con Playwright, contra un Ollama falso):
 
 - Backend: alta/edición/baja de mascotas, catálogo de especies, validación (nombre único, host/puerto, presupuesto de puntos de rama), **ciclo de conexión** con histéresis y eventos, saludo con prompt de personalidad, SSE.
 - Front: tablero en vivo con sprites según estado (idle/think/sleep/glitch/error) y panel de alta/edición (personaje, nombre, host + puerto + modelo con "PROBAR CONEXIÓN", personalidad con vista previa del prompt, estadísticas iniciales). Horizontal y vertical (escritorio 1152×648 y móvil 390×844).
 - Instalación: `deploy/setup_pi.sh`, `setup_termux.sh`, `deploy_lobby.sh`, `inventario_nodo.sh`.
+- **Ciclo día/noche (parte 1):** horario del usuario (despertar/dormir, zona horaria) guardado en `settings`; fases NOCHE / AMANECER / DÍA / ATARDECER (`cycle.py`); aviso en el registro en cada cambio; `GET/PUT /api/cycle` y `cycle` en la instantánea y el SSE. En el tablero: sol o luna con la fase y la hora en la cabecera (abre los ajustes), barra de avance de la fase, tinte y estrellas de noche, y las mascotas duermen de día («DESCANSA») y quedan «DE GUARDIA» de noche. Aún no hay encomiendas: de noche esperan, no trabajan. Ver especificación §2b.
 
 **Solo prototipo** (datos simulados, en `prototype/`): CONSEJO, ROADMAP, MASCOTAS, BUSCAR. Son la especificación visual de los hitos 3–7.
 
@@ -45,6 +46,7 @@ Sondeado desde el portátil de desarrollo, que está en la misma tailnet (`counc
 - Pi 3 (Panda, Erizo) y el lobby en la Pi 2 B: sin probar (apagados). Rendimiento de Flask/SSE en la Pi 2 B: sin medir.
 - Los scripts de `deploy/` se escribieron de memoria; solo `setup_pi.sh` en Ocelote está comprobado por su resultado.
 - El panel se probó solo en Chromium (Playwright). Falta Safari/Firefox y un teléfono real.
+- Ciclo día/noche: probado con zona fija y con cambio de hora (Nueva York); la zona del lobby real (enlace `/etc/localtime` en la Pi) y el selector de hora en un teléfono real, sin probar. En el móvil vertical la cabecera solo muestra el icono de la fase (no cabe la hora).
 
 **Distribución del código:** cada nodo clona el repo (`git clone --depth 1 … ~/ai-council`; el lobby en `/opt/council/app`) y se actualiza con `git pull --ff-only`. En los nodos no se edita nada.
 
@@ -63,6 +65,8 @@ Conclusiones: Pi no acelera el modelo; añade ≈1100 tokens fijos por conversac
 
 ## 5. Decisiones ya tomadas
 
+- **Encomiendas nocturnas:** las tareas se programan y se ejecutan de noche (según el horario del usuario); de día se planifica. Las capacidades de los nodos irán como acciones JSON acotadas que reparte el lobby, no como un agente en cada nodo.
+
 - Un solo servicio Flask en el lobby sirve API + SSE + web estática; SQLite en WAL; sin npm ni bundler.
 - Estado de la mascota derivado del sondeo: `glitch` = sin señal, `error` = contesta pero falla. Detalle en `docs/protocolo_conexion.md`.
 - Personalidad = 5 rasgos (curiosidad, cautela, locuacidad, orden, humor; 0–100) + una "voz" libre de ≤280 caracteres → prompt de sistema de unos 600 caracteres (`persona.py`).
@@ -80,6 +84,7 @@ Conclusiones: Pi no acelera el modelo; añade ≈1100 tokens fijos por conversac
 6. ¿El lobby tiene pantalla (kiosco) o solo se abre desde otros equipos? Cambia el hito 8.
 7. ~~Contexto/keep-alive de Ollama.~~ Confirmado en Ocelote (2048 y 10 min); falta en los demás nodos.
 8. ¿Qué celular es Búho y cuál Kakapo, y qwen3 o qwen2.5 en los celulares?
+9. ~~Ciclo día/noche: duración de amanecer/atardecer y horario de fin de semana.~~ Decidido (21-nov-2026): 30 min y un solo horario para toda la semana.
 
 ## 7. Entorno de desarrollo
 

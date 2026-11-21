@@ -2,7 +2,7 @@
 import {api} from './api.js';
 import {gfx, meta, spr, PET_COL} from './pixel.js';
 
-const el = (tag, attrs = {}, ...kids) => {
+export const el = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);

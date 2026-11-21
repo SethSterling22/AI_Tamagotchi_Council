@@ -20,6 +20,8 @@ export const api = {
   recheck: id => j('POST', `api/pets/${id}/probe`),
   hello: id => fetch(`api/pets/${id}/hello`, {method: 'POST'}).then(r => r.json()),
   persona: b => j('POST', 'api/persona-preview', b),
+  cycle: () => j('GET', 'api/cycle'),
+  setCycle: b => j('PUT', 'api/cycle', b),
 };
 /* Tiempo real: SSE con reintento; si falla, sondeo cada 5 s. */
 export function subscribe(onState) {
