@@ -17,6 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class FakeOllama:
     def __init__(self, port=0, models=("qwen3:0.6b",), mode="ok", version="0.40.16"):
         self.models, self.mode, self.version = list(models), mode, version
+        self.done_reason = "stop"  # «length» simula una respuesta cortada por num_predict
         self.calls = []
         outer = self
 
@@ -56,7 +57,8 @@ class FakeOllama:
                 if self.path == "/api/chat":
                     txt = "" if outer.mode == "vacio" else "<think></think>Hola, soy una mascota de prueba."
                     return self._send(200, {"message": {"role": "assistant", "content": txt},
-                                            "eval_count": 12, "eval_duration": 2_400_000_000})
+                                            "eval_count": 12, "eval_duration": 2_400_000_000,
+                                            "done": True, "done_reason": outer.done_reason})
                 if self.path == "/api/embed":
                     return self._send(200, {"embeddings": [[0.1] * 1024]})
                 self._send(404, {"error": "not found"})

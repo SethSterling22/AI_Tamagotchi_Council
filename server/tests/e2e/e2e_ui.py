@@ -122,6 +122,38 @@ with sync_playwright() as p:
     assert acts["Ocelote"] == "sleep" and acts["Kakapo"] == "sleep", acts  # de día duermen
     page.screenshot(path=f"{OUT}/13_dia.png")
 
+    # encomiendas: se encargan de día, se trabajan de noche y se recogen al amanecer
+    setcy = lambda sleep, wake: page.evaluate(f"""async () => {{ const f = {hhmm};
+      await fetch('api/cycle', {{method: 'PUT', headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{sleep: f({sleep}), wake: f({wake}), tz: 'America/Puerto_Rico'}})}}); }}""")
+    task_of = "(n) => window.__state.pets.find(p => p.name === n).tasks"
+    page.evaluate("window.__click('btn:tasks')"); page.wait_for_selector("#tk-save")
+    assert "pacientes" in page.inner_text("#tk-privacy")
+    opts = page.eval_on_selector_all("#tk-pet option", "os => os.map(o => o.textContent)")
+    assert any("Ocelote" in o for o in opts) and not any("Kakapo" in o for o in opts), opts  # Kakapo es de embeddings
+    page.select_option("#tk-pet", label=next(o for o in opts if "Ocelote" in o))
+    page.fill("#tk-title", "Ideas de cena"); page.click("#tk-save"); page.wait_for_timeout(300)
+    assert "encargo" in page.inner_text('.ferr[data-for="prompt"]').lower()
+    page.fill("#tk-prompt", "Propón tres cenas rápidas con lo que suele haber en casa.")
+    page.click("#tk-save"); page.wait_for_selector("#tasks-queue .task")
+    assert "Ideas de cena" in page.inner_text("#tasks-queue") and "la trabajará esta noche" in page.inner_text("#tk-msg")
+    page.screenshot(path=f"{OUT}/14_encomienda_nueva.png")
+    page.keyboard.press("Escape")
+    page.wait_for_function(f"({task_of})('Ocelote').queued === 1")
+    assert dict(page.evaluate("window.__acts()"))["Ocelote"] == "sleep"  # de día no trabaja: duerme con su encargo en cola
+    setcy(-60, 300)  # noche: el ejecutor la arranca contra el Ollama falso
+    page.wait_for_function(f"({task_of})('Ocelote').unseen === 1", timeout=10000)
+    setcy(-310, -10)  # amanecer: entrega lista
+    page.wait_for_function("window.__state.cycle.phase === 'amanecer'", timeout=5000); page.wait_for_timeout(600)
+    assert dict(page.evaluate("window.__acts()"))["Ocelote"] == "celebrate"
+    page.screenshot(path=f"{OUT}/15_amanecer_entrega.png")
+    page.evaluate("window.__click('btn:tasks')"); page.wait_for_selector("#tasks-done .task.done")
+    assert "mascota de prueba" in page.inner_text("#tasks-done") and "NUEVA" in page.inner_text("#tasks-done")
+    page.screenshot(path=f"{OUT}/16_entregas.png")
+    page.click('#tasks-done [data-act="seen"]')
+    page.wait_for_function(f"({task_of})('Ocelote').unseen === 0", timeout=5000)
+    page.keyboard.press("Escape")
+
     # móvil vertical
     m = b.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     m.on("pageerror", lambda e: errs.append(str(e)))

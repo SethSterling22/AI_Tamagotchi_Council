@@ -9,6 +9,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 
 from . import cycle, db, persona, probe as P
 from .monitor import Monitor
+from .runner import Runner
 from .species import LIMITS, SPECIES, public_catalog
 
 WEB = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "web"))
@@ -95,6 +96,10 @@ def create_app(monitor: Monitor | None = None, autostart=True) -> Flask:
         interval_bad=float(os.environ.get("COUNCIL_INTERVAL_BAD", 5)))
     app.config["monitor"] = mon
     mon.hooks.append(cycle.Watcher(on_change=lambda st: mon.bump()).tick)
+    runner = Runner(mon)
+    app.config["runner"] = runner
+    mon.hooks.append(runner.tick)
+    db.requeue_running()
 
     @app.errorhandler(ApiError)
     def _api_err(e):
@@ -116,7 +121,10 @@ def create_app(monitor: Monitor | None = None, autostart=True) -> Flask:
         return next(p for p in mon.snapshot() if p["id"] == pid)
 
     def payload():
-        return {"pets": mon.snapshot(), "version": mon.version, "cycle": cycle.state(time.time())}
+        pets, ts = mon.snapshot(), db.task_summary()
+        for p in pets:
+            p["tasks"] = ts.get(p["id"], {"queued": 0, "running": None, "unseen": 0, "failed": 0})
+        return {"pets": pets, "version": mon.version, "cycle": cycle.state(time.time())}
 
     # ---------------------------------------------------------------- catálogo / salud
     @app.get("/api/health")
@@ -222,6 +230,63 @@ def create_app(monitor: Monitor | None = None, autostart=True) -> Flask:
     def events():
         pid = request.args.get("pet", type=int)
         return jsonify({"events": db.events(min(request.args.get("limit", 50, type=int), 200), pid)})
+
+    # ---------------------------------------------------------------- encomiendas
+    def task_or_404(tid):
+        t = db.get_task(tid)
+        if not t:
+            raise ApiError("NOT_FOUND", "Esa encomienda no existe.", None, 404)
+        return t
+
+    @app.get("/api/tasks")
+    def list_tasks():
+        st = request.args.get("status")
+        if st and st not in ("queued", "running", "done", "failed"):
+            raise ApiError("BAD_STATUS", "Estado no válido.", "status")
+        return jsonify({"tasks": db.list_tasks(st)})
+
+    @app.post("/api/tasks")
+    def create_task():
+        d = request.get_json(silent=True) or {}
+        try:
+            pet = pet_or_404(int(d.get("pet_id")))
+        except (TypeError, ValueError):
+            raise ApiError("BAD_PET", "Elige una mascota.", "pet_id")
+        sp = SPECIES[pet["species"]]
+        if sp["kind"] != "chat" or sp["locked"]:
+            raise ApiError("NO_TASKS", f"{pet['name']} aún no acepta encomiendas de texto.", "pet_id")
+        title, prompt = str(d.get("title") or "").strip(), str(d.get("prompt") or "").strip()
+        if not title or len(title) > LIMITS["task_title_max"]:
+            raise ApiError("BAD_TITLE", f"El título debe tener entre 1 y {LIMITS['task_title_max']} caracteres.", "title")
+        if not prompt or len(prompt) > LIMITS["task_prompt_max"]:
+            raise ApiError("BAD_PROMPT", f"El encargo debe tener entre 1 y {LIMITS['task_prompt_max']} caracteres (cabe en el contexto de la mascota).", "prompt")
+        tid = db.insert_task(pet["id"], title, prompt)
+        db.add_event(pet["id"], "task_new", f"encomienda #{tid} en cola")
+        mon.bump()
+        return jsonify(db.get_task(tid)), 201
+
+    @app.post("/api/tasks/<int:tid>/seen")
+    def task_seen(tid):
+        task_or_404(tid)
+        db.mark_seen(tid, time.time())
+        mon.bump()
+        return jsonify(db.get_task(tid))
+
+    @app.post("/api/tasks/<int:tid>/retry")
+    def task_retry(tid):
+        task_or_404(tid)
+        if not db.retry_task(tid):
+            raise ApiError("NOT_FAILED", "Solo se reintenta una encomienda fallida.", None, 409)
+        mon.bump()
+        return jsonify(db.get_task(tid))
+
+    @app.delete("/api/tasks/<int:tid>")
+    def task_delete(tid):
+        task_or_404(tid)
+        if not db.delete_task(tid):
+            raise ApiError("RUNNING", "Está en marcha: espera a que termine.", None, 409)
+        mon.bump()
+        return "", 204
 
     # ---------------------------------------------------------------- ciclo día/noche
     @app.get("/api/cycle")

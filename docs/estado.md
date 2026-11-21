@@ -18,12 +18,13 @@ Seis mascotas, cada una con un trabajo en una línea de producción de IA. Apren
 
 ## 2. Qué está hecho
 
-**Hecho y probado** (48 pruebas pytest + e2e con Playwright, contra un Ollama falso):
+**Hecho y probado** (58 pruebas pytest + e2e con Playwright, contra un Ollama falso):
 
 - Backend: alta/edición/baja de mascotas, catálogo de especies, validación (nombre único, host/puerto, presupuesto de puntos de rama), **ciclo de conexión** con histéresis y eventos, saludo con prompt de personalidad, SSE.
 - Front: tablero en vivo con sprites según estado (idle/think/sleep/glitch/error) y panel de alta/edición (personaje, nombre, host + puerto + modelo con "PROBAR CONEXIÓN", personalidad con vista previa del prompt, estadísticas iniciales). Horizontal y vertical (escritorio 1152×648 y móvil 390×844).
 - Instalación: `deploy/setup_pi.sh`, `setup_termux.sh`, `deploy_lobby.sh`, `inventario_nodo.sh`.
-- **Ciclo día/noche (parte 1):** horario del usuario (despertar/dormir, zona horaria) guardado en `settings`; fases NOCHE / AMANECER / DÍA / ATARDECER (`cycle.py`); aviso en el registro en cada cambio; `GET/PUT /api/cycle` y `cycle` en la instantánea y el SSE. En el tablero: sol o luna con la fase y la hora en la cabecera (abre los ajustes), barra de avance de la fase, tinte y estrellas de noche, y las mascotas duermen de día («DESCANSA») y quedan «DE GUARDIA» de noche. Aún no hay encomiendas: de noche esperan, no trabajan. Ver especificación §2b.
+- **Ciclo día/noche (parte 1):** horario del usuario (despertar/dormir, zona horaria) guardado en `settings`; fases NOCHE / AMANECER / DÍA / ATARDECER (`cycle.py`); aviso en el registro en cada cambio; `GET/PUT /api/cycle` y `cycle` en la instantánea y el SSE. En el tablero: sol o luna con la fase y la hora en la cabecera (abre los ajustes), barra de avance de la fase, tinte y estrellas de noche, y las mascotas duermen de día («DESCANSA») y quedan «DE GUARDIA» de noche. Ver especificación §2b.
+- **Encomiendas nocturnas:** se encargan de día a una mascota (título + encargo); el ejecutor solo las trabaja de NOCHE, una a la vez por nodo y solo con el nodo en línea; reintenta con espera y marca fallidas al tercer intento; al AMANECER la mascota celebra su entrega. Hoja ENCOMIENDAS (botón con un paquete en la cabecera) con entregas, cola y fallidas. El registro nunca guarda el texto encargado.
 
 **Solo prototipo** (datos simulados, en `prototype/`): CONSEJO, ROADMAP, MASCOTAS, BUSCAR. Son la especificación visual de los hitos 3–7.
 
@@ -46,7 +47,9 @@ Sondeado desde el portátil de desarrollo, que está en la misma tailnet (`counc
 - Pi 3 (Panda, Erizo) y el lobby en la Pi 2 B: sin probar (apagados). Rendimiento de Flask/SSE en la Pi 2 B: sin medir.
 - Los scripts de `deploy/` se escribieron de memoria; solo `setup_pi.sh` en Ocelote está comprobado por su resultado.
 - El panel se probó solo en Chromium (Playwright). Falta Safari/Firefox y un teléfono real.
-- Ciclo día/noche: probado con zona fija y con cambio de hora (Nueva York); la zona del lobby real (enlace `/etc/localtime` en la Pi) y el selector de hora en un teléfono real, sin probar. En el móvil vertical la cabecera solo muestra el icono de la fase (no cabe la hora).
+- **Encomienda real (21-nov-2026):** el ejecutor (`Runner.work`, sin pasar por la ventana nocturna) completó una encomienda en el A21s con `qwen2.5:0.5b`: 184 tokens a 12,8 tok/s, 27 s, sin cortar. El resultado fue flojo (no agrupó la compra por tipo de alimento): la calidad la limita el modelo de 0.5B. El mismo intento contra Ocelote dio `ETIMEDOUT` (el nodo dejó de responder) y la encomienda volvió a la cola con un intento contado, como se espera cuando el fallo ocurre ya en marcha.
+- Encomiendas: el estado «TRABAJANDO» del tablero no aparece en la e2e (el Ollama falso responde al instante); está cubierto por pytest. Sin probar una noche entera con varios nodos reales ni el tiempo de espera de 900 s en un celular.
+- Ciclo día/noche: probado con zona fija y con cambio de hora (Nueva York); la zona del lobby real (enlace `/etc/localtime` en la Pi) y el selector de hora en un teléfono real, sin probar. En el móvil vertical los botones de la cabecera se compactan (paquete y «+») para que quepa la hora.
 
 **Distribución del código:** cada nodo clona el repo (`git clone --depth 1 … ~/ai-council`; el lobby en `/opt/council/app`) y se actualiza con `git pull --ff-only`. En los nodos no se edita nada.
 

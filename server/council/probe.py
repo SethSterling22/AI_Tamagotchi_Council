@@ -151,8 +151,16 @@ def hello(host, port, model, kind, system_prompt, prompt, timeout=60.0) -> dict:
             raise ProbeError("error", "BAD_RESPONSE", "El modelo no devolvió un embedding.")
         return {"text": f"Embedding de {len(vec)} dimensiones guardado en memoria.", "dims": len(vec),
                 "ms": round((time.perf_counter() - t0) * 1000), "tps": None}
+    r = generate(host, port, model, system_prompt, prompt, 64, timeout)
+    return {"text": r["text"], "ms": r["ms"], "tps": r["tps"]}
+
+
+def generate(host, port, model, system_prompt, prompt, num_predict, timeout=60.0) -> dict:
+    """Una generación de chat sin razonamiento visible (think:false) y con contexto de 2k."""
+    host, port = validate_target(host, port)
+    t0 = time.perf_counter()
     body = {"model": model, "stream": False, "think": False,
-            "options": {"num_predict": 64, "num_ctx": 2048, "temperature": 0.7},
+            "options": {"num_predict": num_predict, "num_ctx": 2048, "temperature": 0.7},
             "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}]}
     r = http_json(host, port, "/api/chat", body, timeout=timeout)
     text = ((r.get("message") or {}).get("content") or "").strip()
@@ -161,4 +169,5 @@ def hello(host, port, model, kind, system_prompt, prompt, timeout=60.0) -> dict:
         raise ProbeError("error", "EMPTY", "El modelo respondió vacío.")
     ec, ed = r.get("eval_count"), r.get("eval_duration")
     tps = round(ec / (ed / 1e9), 1) if ec and ed else None
-    return {"text": text, "ms": round((time.perf_counter() - t0) * 1000), "tps": tps}
+    return {"text": text, "ms": round((time.perf_counter() - t0) * 1000), "tps": tps, "tokens": ec,
+            "truncated": r.get("done_reason") == "length"}

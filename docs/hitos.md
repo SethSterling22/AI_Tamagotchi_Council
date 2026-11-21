@@ -16,7 +16,7 @@ Cada nodo publica por MQTT (`council/<slug>/hb`) estado, tarea actual y RAM/temp
 **Aceptación:** sin latido > 30 s con sondeo OK → "nodo vivo, agente parado" (error descriptivo distinto de glitch).
 
 ## Ciclo día/noche — **parte 1 hecha** (ver especificación §2b)
-Horario del usuario (despertar/dormir + zona horaria), cuatro fases, avisos en el registro, tablero con tinte nocturno, sol/luna en la cabecera y mascotas que duermen de día. **Falta:** que el ejecutor de tareas (H6) use `cycle.phase_at(...)["work"]` como ventana, que las entregas aparezcan al AMANECER, que la energía/ánimo (H3) sigan el ciclo y que la planificación (H5) se ofrezca de DÍA.
+Horario del usuario (despertar/dormir + zona horaria), cuatro fases, avisos en el registro, tablero con tinte nocturno, sol/luna en la cabecera y mascotas que duermen de día. **Encomiendas nocturnas — hecho** (ver especificación §2b): cola por mascota, ejecutor solo de NOCHE, reintentos, entregas al AMANECER. **Falta:** que la energía/ánimo (H3) sigan el ciclo, que la planificación (H5) se ofrezca de DÍA y que el roadmap (H6) genere encomiendas con dependencias.
 
 ## H3 · Pestañas y tablero completo
 Portar la cabecera con pestañas y el TABLERO del prototipo (muebles de las habitaciones, tarea actual con barra, registro del lobby). La barra de energía y el ánimo ya existen en BD (`stats`): hacer que se muevan (decaen con el trabajo, suben con el cuidado).
@@ -30,7 +30,7 @@ Portar la pantalla MASCOTAS. Persistir puntos, XP y niveles en `pets`/`branches`
 Tabla `brief`. La Panda formula las preguntas con su modelo (salida estructurada, ≤400 tokens; con plantilla de respaldo si el modelo falla). Etapas PREGUNTAR → PROPONER → CRITICAR → ACORDAR. Si quien debe preguntar está caído, otra pregunta por ella y el lobby lo anuncia.
 
 ## H6 · ROADMAP y ejecución de micro-tareas
-Generar el roadmap (JSON de la especificación §3) con un modelo real, validando contra un esquema; el Erizo parte tareas que crecen. Runner con dependencias, reintentos y espera si el dueño está caído. Tabla `tasks`.
+Generar el roadmap (JSON de la especificación §3) con un modelo real, validando contra un esquema; el Erizo parte tareas que crecen. El ejecutor nocturno, los reintentos, la espera si el dueño está caído y la tabla `tasks` ya existen (encomiendas): falta añadir dependencias (`depends_on`) y entradas que vengan de otras tareas.
 
 ## H7 · Buscador con filtro de privacidad (bloqueado por decisión 1 y 2)
 Protocolo `{"need":"search",...}` → filtro → motor → resumen ≤800 caracteres → respuesta con fuente. Límites 2 por tarea / 30 por día, caché SQLite, tabla `searches`. **Primero el filtro y su batería de pruebas** (nombres, correos, teléfonos, IPs, identificadores tipo paciente/MRN); nada sale a internet sin pasarlas.

@@ -7,7 +7,7 @@ def _band(v: int, low: str, mid: str, high: str) -> str:
     return low if v < 34 else (high if v >= 67 else mid)
 
 
-def build_system_prompt(species: str, name: str, role: str, traits: dict, voice: str) -> str:
+def build_system_prompt(species: str, name: str, role: str, traits: dict, voice: str, task: bool = False) -> str:
     t = {k: int(traits.get(k, 50)) for k in ("curiosidad", "cautela", "locuacidad", "orden", "humor")}
     loq = t["locuacidad"]
     max_frases = 1 if loq < 34 else (2 if loq < 67 else 3)
@@ -18,6 +18,8 @@ def build_system_prompt(species: str, name: str, role: str, traits: dict, voice:
         _band(t["cautela"], "Te arriesgas con ideas nuevas.", "Equilibras cautela y riesgo.", "Eres cauto: verificas antes de afirmar."),
         _band(t["orden"], "Eres informal con la estructura.", "Mantienes un orden razonable.", "Eres metódico y estructurado."),
         _band(t["humor"], "Tono serio.", "Tono amable.", "Usas un toque de humor suave."),
+        # en una encomienda la longitud la marca el tope de tokens, no la locuacidad
+        "Entrega solo el resultado de la encomienda, completo y en menos de 300 palabras." if task else
         f"Responde en un máximo de {max_frases} frase{'s' if max_frases > 1 else ''}.",
         "Si no sabes algo, dilo; no inventes datos.",
     ]
