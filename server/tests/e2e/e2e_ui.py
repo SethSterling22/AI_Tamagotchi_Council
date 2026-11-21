@@ -1,0 +1,112 @@
+"""E2E del panel de alta con Playwright. Requiere el entorno de tools/dev.sh corriendo en :8080.
+   python tests/e2e/e2e_ui.py [carpeta_capturas]"""
+import sys
+from playwright.sync_api import sync_playwright
+
+OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/shots"
+URL = "http://localhost:8080/"
+errs = []
+
+def add_pet(page, species, name, host, port, model, probe=True, branch=None):
+    page.evaluate("window.__click('btn:add')")
+    page.wait_for_selector(".sheet")
+    page.click(f'.tile[data-species="{species}"]')
+    page.fill("#f-name", name); page.fill("#f-host", host); page.fill("#f-port", str(port)); page.fill("#f-model", model)
+    if probe:
+        page.click("#btn-probe"); page.wait_for_selector(".conn-result.ok, .conn-result.err, .conn-result.glitch")
+    for i, n in enumerate(branch or []):
+        for _ in range(n):
+            page.click(f".branch:nth-child({i+1}) .pm:last-child")
+    return page
+
+with sync_playwright() as p:
+    b = p.chromium.launch()
+    page = b.new_page(viewport={"width": 1152, "height": 648}, device_scale_factor=1)
+    page.on("pageerror", lambda e: errs.append(str(e)))
+    page.on("console", lambda m: errs.append(m.text) if m.type == "error" and "Failed to load resource" not in m.text else None)  # 4xx/5xx esperados en las pruebas de validación
+    page.goto(URL); page.wait_for_selector("body[data-ready]"); page.wait_for_timeout(600)
+    page.screenshot(path=f"{OUT}/01_vacio.png")
+
+    page.evaluate("window.__click('btn:add')"); page.wait_for_selector(".sheet")
+    page.screenshot(path=f"{OUT}/02_panel_vacio.png")
+    assert page.is_disabled("#btn-save"), "guardar debe estar deshabilitado sin personaje"
+    assert page.is_disabled('.tile[data-species="armino"]'), "armiño bloqueado"
+    page.keyboard.press("Escape")
+
+    # 1) Ocelote: prueba ok, ramas 2+1
+    add_pet(page, "ocelote", "Ocelote", "127.0.0.1", 11501, "qwen3:1.7b", branch=[2, 1, 0])
+    page.wait_for_timeout(500)
+    page.screenshot(path=f"{OUT}/03_panel_conexion_ok.png")
+    assert "EN LÍNEA" in page.inner_text(".conn-result")
+    assert "PUNTOS INICIALES: 0" in page.inner_text(".pts")
+    page.click("#btn-save"); page.wait_for_selector(".sheet", state="detached")
+
+    # 2) Búho: puerto cerrado → glitch (guardar igual)
+    add_pet(page, "buho", "Búho", "127.0.0.1", 11599, "qwen3:0.6b")
+    page.wait_for_timeout(300)
+    page.screenshot(path=f"{OUT}/04_panel_glitch.png")
+    assert "SIN SEÑAL" in page.inner_text(".conn-result") and "ECONNREFUSED" in page.inner_text(".conn-result")
+    page.click("#btn-save"); page.wait_for_selector(".sheet", state="detached")
+
+    # 3) Panda: sin modelos → MODEL_MISSING (error)
+    add_pet(page, "panda_rojo", "Panda", "127.0.0.1", 11503, "qwen3:0.6b")
+    assert "MODEL_MISSING" in page.inner_text(".conn-result")
+    page.click("#btn-save"); page.wait_for_selector(".sheet", state="detached")
+
+    # 4) Erizo: ok pero OOM al saludar
+    add_pet(page, "erizo", "Erizo", "127.0.0.1", 11502, "qwen3:0.6b", branch=[0, 0, 0])
+    page.click("#btn-save"); page.wait_for_selector(".sheet", state="detached")
+
+    # 5) Kakapo (embeddings)
+    add_pet(page, "kakapo", "Kakapo", "127.0.0.1", 11501, "qwen3-embedding:0.6b")
+    page.click("#btn-save"); page.wait_for_selector(".sheet", state="detached")
+
+    # validaciones del servidor reflejadas en el formulario
+    page.evaluate("window.__click('slot:add')"); page.wait_for_selector(".sheet")
+    page.click('.tile[data-species="ocelote"]'); page.fill("#f-name", "erizo"); page.fill("#f-host", "8.8.8.8")
+    page.click("#btn-save"); page.wait_for_timeout(400)
+    assert "Ya existe" in page.inner_text('.ferr[data-for="name"]'), page.inner_text(".sheet")
+    page.fill("#f-name", "Rex"); page.click("#btn-save"); page.wait_for_timeout(400)
+    assert "IPs de red local" in page.inner_text('.ferr[data-for="host"]')
+    page.screenshot(path=f"{OUT}/05_panel_errores.png")
+    page.keyboard.press("Escape")
+
+    page.wait_for_timeout(2500)
+    page.screenshot(path=f"{OUT}/06_tablero.png")
+    states = page.evaluate("window.__state.pets.map(p => [p.name, p.status.state, p.status.error && p.status.error.code])")
+    print(states)
+    st = dict((n, s) for n, s, _ in states)
+    assert st["Ocelote"] == "online" and st["Búho"] == "glitch" and st["Panda"] == "error" and st["Erizo"] == "online" and st["Kakapo"] == "online", st
+
+    # edición: abrir Erizo, saludar (OOM), ver prompt
+    page.evaluate("window.__click('room:erizo')"); page.wait_for_selector(".sheet")
+    page.click("#btn-hello"); page.wait_for_selector(".hello.err")
+    assert "OOM" in page.inner_text("#hello-out")
+    page.click("summary"); page.wait_for_timeout(500)
+    page.screenshot(path=f"{OUT}/07_editar_saludo_oom.png")
+    page.keyboard.press("Escape")
+    # edición: abrir Ocelote, saludar ok
+    page.evaluate("window.__click('room:ocelote')"); page.wait_for_selector(".sheet")
+    page.click("#btn-hello"); page.wait_for_selector(".hello.ok")
+    print(page.inner_text("#hello-out"))
+    page.keyboard.press("Escape")
+    # eliminar: Búho (doble clic de confirmación); antes daba TypeError tras cerrar el panel
+    page.evaluate("window.__click('room:buho')"); page.wait_for_selector(".sheet")
+    page.click("#btn-delete"); assert "SEGURO" in page.inner_text("#btn-delete")
+    page.click("#btn-delete"); page.wait_for_selector(".sheet", state="detached")
+    page.wait_for_function("!window.__state.pets.some(p => p.name === 'Búho')", timeout=5000)
+
+    # móvil vertical
+    m = b.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
+    m.on("pageerror", lambda e: errs.append(str(e)))
+    m.goto(URL); m.wait_for_selector("body[data-ready]"); m.wait_for_timeout(2500)
+    m.screenshot(path=f"{OUT}/08_movil_tablero.png")
+    m.evaluate("window.__click('btn:add')"); m.wait_for_selector(".sheet")
+    m.click('.tile[data-species="panda_rojo"]'); m.wait_for_timeout(300)
+    m.screenshot(path=f"{OUT}/09_movil_panel.png")
+    m.evaluate("document.querySelector('.body').scrollTo(0, 99999)"); m.wait_for_timeout(300)
+    m.screenshot(path=f"{OUT}/10_movil_panel_stats.png")
+    b.close()
+print("errores de consola/JS:", errs)
+assert not errs
+print("E2E OK")

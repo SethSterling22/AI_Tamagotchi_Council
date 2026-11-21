@@ -1,0 +1,5 @@
+flask>=3.0
+# opcional, servidor de producción ligero:
+# waitress>=3.0
+# pruebas:
+# pytest>=8

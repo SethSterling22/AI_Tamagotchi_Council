@@ -1,0 +1,97 @@
+{
+  "sprite_size": 32,
+  "columns": 6,
+  "rows": 9,
+  "note": "Cada fila de la spritesheet es una accion; cada columna, un frame. Origen arriba a la izquierda.",
+  "actions": {
+    "idle": {
+      "row": 0,
+      "frames": 4,
+      "fps": 2.2,
+      "label": "En reposo",
+      "status": "Esperando…"
+    },
+    "think": {
+      "row": 1,
+      "frames": 4,
+      "fps": 3,
+      "label": "Pensando",
+      "status": "Pensando…"
+    },
+    "type": {
+      "row": 2,
+      "frames": 4,
+      "fps": 7,
+      "label": "Escribiendo código",
+      "status": "Escribiendo código…"
+    },
+    "read": {
+      "row": 3,
+      "frames": 4,
+      "fps": 2.5,
+      "label": "Leyendo archivos",
+      "status": "Leyendo archivos…"
+    },
+    "sleep": {
+      "row": 4,
+      "frames": 4,
+      "fps": 2,
+      "label": "Durmiendo",
+      "status": "Zzz…"
+    },
+    "celebrate": {
+      "row": 5,
+      "frames": 4,
+      "fps": 6,
+      "label": "¡Listo!",
+      "status": "¡Tarea completada!"
+    },
+    "walk": {
+      "row": 6,
+      "frames": 4,
+      "fps": 5,
+      "label": "Caminando",
+      "status": "Explorando…"
+    },
+    "error": {
+      "row": 7,
+      "frames": 4,
+      "fps": 4,
+      "label": "Error",
+      "status": "Error: algo salió mal"
+    },
+    "glitch": {
+      "row": 8,
+      "frames": 6,
+      "fps": 8,
+      "label": "Glitch",
+      "status": "Señal corrupta…"
+    }
+  },
+  "pets": {
+    "kakapo": {
+      "name": "Kakapo",
+      "sheet": "spritesheets/kakapo_spritesheet.png"
+    },
+    "ocelote": {
+      "name": "Ocelote",
+      "sheet": "spritesheets/ocelote_spritesheet.png"
+    },
+    "buho": {
+      "name": "Búho",
+      "sheet": "spritesheets/buho_spritesheet.png"
+    },
+    "erizo": {
+      "name": "Erizo",
+      "sheet": "spritesheets/erizo_spritesheet.png"
+    },
+    "panda_rojo": {
+      "name": "Panda rojo",
+      "sheet": "spritesheets/panda_rojo_spritesheet.png"
+    },
+    "armino": {
+      "name": "Armiño",
+      "sheet": "spritesheets/armino_spritesheet.png"
+    }
+  }
+}
