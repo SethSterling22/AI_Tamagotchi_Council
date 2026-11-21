@@ -16,6 +16,7 @@ class Monitor:
         self._stop = threading.Event()
         self._thread = None
         self._lock = threading.Lock()
+        self.hooks = []  # funciones f(now) que el hilo llama cada segundo (p. ej. el ciclo día/noche)
 
     # ---------------------------------------------------------------- estado
     def _blank(self, pet_id):
@@ -100,6 +101,11 @@ class Monitor:
                         threading.Thread(target=self._safe_check, args=(pet["id"],), daemon=True).start()
             except Exception:
                 pass
+            for hook in self.hooks:
+                try:
+                    hook(now)
+                except Exception as e:  # un gancho roto no detiene el sondeo
+                    db.add_event(None, "monitor_error", repr(e)[:200])
             self._stop.wait(1.0)
 
     def _safe_check(self, pet_id):

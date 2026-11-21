@@ -20,6 +20,19 @@ El estado vive en el lobby y todas las pantallas lo leen. Hay cuatro fases: **pl
 
 En CONSEJO, la etapa PREGUNTAR hace una pregunta por mascota (la que mejor entiende el tema), luego el lobby narra PROPONER, el Erizo hace CRITICAR y se cierra con ACORDAR. Dos reglas de resiliencia: si una pregunta ya se respondió en un minijuego, se salta, y si la mascota que debe preguntar está caída, otra la formula por ella y el lobby lo anuncia.
 
+## 2b. Ciclo día/noche (encomiendas nocturnas)
+
+Las interacciones con el Consejo son **encomiendas programadas**, a largo plazo: no se espera una respuesta instantánea. Las mascotas (todas de especies nocturnas) **trabajan mientras el usuario duerme** y, de día, descansan y planifican con él. El ciclo sigue el horario del usuario (hora de despertar y de dormir en su zona horaria IANA), no el sol, así que quien duerme de día tiene la «noche» del Consejo a mediodía.
+
+| Fase | Intervalo | Qué pasa |
+|---|---|---|
+| ATARDECER | 30 min antes de dormir | despiertan; se cierran las encomiendas de la noche |
+| NOCHE | de dormir a despertar | turno de trabajo: el ejecutor de tareas (H6) solo corre aquí |
+| AMANECER | 30 min tras despertar | entregas de la noche |
+| DÍA | el resto | descansan (sprite `sleep`, se las puede despertar con SALUDAR) y planifican con el usuario (CONSEJO/ROADMAP, H5) |
+
+Reglas: despierto y dormido deben durar al menos 2 h cada uno; las cuentas se hacen en tiempo absoluto (una noche con cambio de hora dura lo que dura de verdad); un nodo caído o con error muestra su estado por encima de la fase. Cada cambio de fase se anota en el registro del lobby. API: `GET/PUT /api/cycle`; la instantánea de `/api/pets` y del SSE incluye `cycle`. La lentitud de los modelos (3 tok/s en la Pi 4) es parte del juego: se encarga de día y se recoge por la mañana.
+
 ## 3. Roadmap: micro-tareas para modelos pequeños
 
 Cada tarea debe caber en un modelo de 0.6B–4B con contexto de 2k. Las reglas son: un solo objetivo por tarea, salida de hasta unos 400 tokens, entradas explícitas (nada de "mira todo el historial") y un criterio de listo de una línea que el Erizo pueda comprobar. Si una tarea crece, el Erizo la parte en dos antes de que empiece.

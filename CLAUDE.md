@@ -18,7 +18,7 @@ Proyecto personal de Sebastian: un "consejo" de mascotas pixel-art (Tamagotchi) 
 
 ```bash
 pip install -r server/requirements.txt pytest playwright   # una vez
-make test        # 27 pruebas del backend (≈10 s)
+make test        # 48 pruebas del backend (≈10 s)
 make dev         # lobby en http://localhost:8080 + 3 Ollama falsos (puertos 11501 ok, 11502 OOM, 11503 sin modelos)
 make e2e         # interfaz con Playwright (con `make dev` corriendo); deja capturas en /tmp/council_shots
 ./deploy/deploy_lobby.sh USUARIO@lobby   # despliega en la Pi del lobby
@@ -30,14 +30,16 @@ make e2e         # interfaz con Playwright (con `make dev` corriendo); deja capt
 |---|---|
 | `server/council/species.py` | Catálogo de las 6 especies: rol, modelo sugerido, rasgos, stats y ramas por defecto. **Fuente única**: el front lo lee de `/api/species`. |
 | `server/council/probe.py` | Validación de host/puerto (SSRF), sondeo de Ollama, clasificación de errores, saludo. |
-| `server/council/monitor.py` | Ciclo de conexión: hilo, histéresis, eventos, notificación a SSE. |
+| `server/council/monitor.py` | Ciclo de conexión: hilo, histéresis, eventos, notificación a SSE; ganchos por segundo (`hooks`). |
+| `server/council/cycle.py` | Ciclo día/noche sincronizado con el horario del usuario: fases, validación, avisos de cambio de fase. |
 | `server/council/persona.py` | Rasgos + voz → prompt de sistema corto. |
-| `server/council/db.py` | SQLite (WAL): `pets`, `branches`, `events`. |
+| `server/council/db.py` | SQLite (WAL): `pets`, `branches`, `events`, `settings`. |
 | `server/council/app.py` | API REST + SSE + sirve `web/`. |
 | `server/tools/fake_ollama.py` | Ollama falso (modos ok/oom/garbage/slow/vacio). |
 | `web/js/pixel.js` | Primitivas canvas, fuente bitmap, sprites. |
 | `web/js/board.js` | Tablero (canvas): habitaciones, estados, registro. |
-| `web/js/panel.js` | Panel de alta/edición (DOM). |
+| `web/js/panel.js` | Panel de alta/edición (DOM) y el helper `el()`. |
+| `web/js/cycle.js` | Ciclo día/noche en el front: reloj de fase, sol/luna, tinte nocturno y hoja de ajustes del horario. |
 | `prototype/` | Prototipo v1 de **todas** las pantallas (datos simulados). Es la referencia visual y de comportamiento de lo que falta portar. |
 | `art/` | Rig de sprites (Python/PIL), exportadores y GIFs. |
 | `deploy/` | Scripts de instalación por nodo (Pi y Termux) y despliegue del lobby. |

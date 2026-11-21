@@ -36,7 +36,7 @@ canvas.mini{image-rendering:pixelated}
 .field{display:block;margin:6px 0}
 .lbl{display:block;font-size:11px;letter-spacing:.08em;color:var(--gray);margin-bottom:3px}
 .hint{display:block;font-size:11px;color:var(--slate);margin-top:2px}
-input[type=text],input[type=number],textarea{width:100%;background:var(--void);color:var(--white);border:2px solid var(--dark);font:inherit;font-size:14px;padding:7px 8px;border-radius:0}
+input[type=text],input[type=number],input[type=time],textarea{width:100%;background:var(--void);color:var(--white);border:2px solid var(--dark);font:inherit;font-size:14px;padding:7px 8px;border-radius:0}
 textarea{resize:vertical;min-height:60px}
 input:focus,textarea:focus,button:focus-visible,summary:focus-visible{outline:none;border-color:var(--cyan);box-shadow:0 0 0 2px rgba(115,239,247,.25)}
 .bad{border-color:var(--orange)!important}
@@ -80,6 +80,13 @@ details{margin-top:8px}summary{cursor:pointer;color:var(--gray);font-size:12px}
 .pm:hover:not(:disabled){border-color:var(--cyan)}.pm:disabled{opacity:.3;cursor:not-allowed}
 .sheet footer{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:10px 12px;background:var(--void);border-top:2px solid var(--slate);flex-wrap:wrap}
 .msg{flex:1;color:var(--orange);font-size:12px}
+/* ciclo día/noche */
+.grid-even{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=time]{color-scheme:dark}
+.warn{color:var(--yellow);font-size:12px}
+.phases{display:grid;gap:4px}
+.ph{display:grid;grid-template-columns:90px 110px 1fr;gap:8px;align-items:center;background:var(--ink);border:2px solid var(--dark);padding:5px 6px}
+.ph.now{border-color:var(--yellow)}
 @media (max-width:560px){
   .backdrop{padding:0}.sheet{width:100%;height:100%;max-height:none;border-width:0}
   .species{grid-template-columns:repeat(3,1fr)}
@@ -87,4 +94,5 @@ details{margin-top:8px}summary{cursor:pointer;color:var(--gray);font-size:12px}
   .trait .lbl{grid-area:l}.trait output{grid-area:o}.trait .ends{display:none}.trait input{grid-area:r}
   .grid2{grid-template-columns:1fr 100px}
   .info{flex-direction:column;align-items:flex-start}
+  .ph{grid-template-columns:90px 1fr}.ph .dim{grid-column:1/-1}
 }

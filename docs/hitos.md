@@ -15,6 +15,9 @@ Aceptación cumplida: dar de alta una mascota con host/puerto/personaje/nombre/p
 Cada nodo publica por MQTT (`council/<slug>/hb`) estado, tarea actual y RAM/temperatura; el lobby lo cruza con el sondeo. Mosquitto ya lo instala `setup_pi.sh lobby`. Añadir `paho-mqtt` solo en el lobby (ya está en el venv). El sprite pasa a reflejar la actividad real (`type`, `read`, `think`, `walk`).
 **Aceptación:** sin latido > 30 s con sondeo OK → "nodo vivo, agente parado" (error descriptivo distinto de glitch).
 
+## Ciclo día/noche — **parte 1 hecha** (ver especificación §2b)
+Horario del usuario (despertar/dormir + zona horaria), cuatro fases, avisos en el registro, tablero con tinte nocturno, sol/luna en la cabecera y mascotas que duermen de día. **Falta:** que el ejecutor de tareas (H6) use `cycle.phase_at(...)["work"]` como ventana, que las entregas aparezcan al AMANECER, que la energía/ánimo (H3) sigan el ciclo y que la planificación (H5) se ofrezca de DÍA.
+
 ## H3 · Pestañas y tablero completo
 Portar la cabecera con pestañas y el TABLERO del prototipo (muebles de las habitaciones, tarea actual con barra, registro del lobby). La barra de energía y el ánimo ya existen en BD (`stats`): hacer que se muevan (decaen con el trabajo, suben con el cuidado).
 **Aceptación:** el tablero del prototipo, con datos reales.

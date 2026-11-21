@@ -96,6 +96,32 @@ with sync_playwright() as p:
     page.click("#btn-delete"); page.wait_for_selector(".sheet", state="detached")
     page.wait_for_function("!window.__state.pets.some(p => p.name === 'Búho')", timeout=5000)
 
+    # ciclo día/noche: horas relativas a «ahora» en la zona de prueba
+    hhmm = "(m) => new Intl.DateTimeFormat('en-GB', {timeZone: 'America/Puerto_Rico', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}).format(new Date(Date.now() + m * 60000))"
+    assert page.evaluate("window.__state.cycle && ['noche','amanecer','dia','atardecer'].includes(window.__state.cycle.phase)")
+    page.evaluate(f"""async () => {{ const f = {hhmm};
+      await fetch('api/cycle', {{method: 'PUT', headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{sleep: f(-60), wake: f(300), tz: 'America/Puerto_Rico'}})}}); }}""")
+    page.wait_for_function("window.__state.cycle.phase === 'noche' && window.__state.cycle.configured", timeout=5000)
+    page.wait_for_timeout(600)
+    acts = dict(page.evaluate("window.__acts()"))
+    assert acts["Ocelote"] == "idle" and acts["Panda"] == "error", acts  # de noche: de guardia; el error manda sobre la fase
+    page.screenshot(path=f"{OUT}/11_noche.png")
+    # abrir la hoja desde la cabecera, probar la validación y pasar a pleno día
+    page.evaluate("window.__click('btn:cycle')"); page.wait_for_selector("#cy-save")
+    assert "NOCHE" in page.inner_text(".phases .ph.now")
+    page.fill("#cy-wake", page.evaluate(f"({hhmm})(-180)")); page.fill("#cy-sleep", page.evaluate(f"({hhmm})(-150)"))
+    page.click("#cy-save"); page.wait_for_timeout(400)
+    assert "2 horas despierto" in page.inner_text('.ferr[data-for="sleep"]'), page.inner_text(".sheet")
+    page.fill("#cy-sleep", page.evaluate(f"({hhmm})(480)"))
+    page.screenshot(path=f"{OUT}/12_ajustes_ciclo.png")
+    page.click("#cy-save"); page.wait_for_selector("#cy-save", state="detached")
+    page.wait_for_function("window.__state.cycle.phase === 'dia'", timeout=5000)
+    page.wait_for_timeout(600)
+    acts = dict(page.evaluate("window.__acts()"))
+    assert acts["Ocelote"] == "sleep" and acts["Kakapo"] == "sleep", acts  # de día duermen
+    page.screenshot(path=f"{OUT}/13_dia.png")
+
     # móvil vertical
     m = b.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     m.on("pageerror", lambda e: errs.append(str(e)))
