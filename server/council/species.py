@@ -17,9 +17,9 @@ TRAITS = [
 # kind: "chat" -> /api/chat ; "embed" -> /api/embed (Kakapo solo guarda recuerdos)
 SPECIES = {
     "ocelote": {
-        "key": "ocelote", "name": "Ocelote", "role": "CONSTRUCTOR", "host_hint": "Raspberry Pi 4 B",
-        "hostname": "ocelote", "kind": "chat", "model_suggested": "qwen3:4b",
-        "model_alt": "qwen3:1.7b (si la Pi tiene menos de 8 GB)", "locked": False,
+        "key": "ocelote", "name": "Ocelote", "role": "CONSTRUCTOR", "host_hint": "Raspberry Pi 4 B (4 GB)",
+        "hostname": "ocelote", "kind": "chat", "model_suggested": "qwen3:1.7b",  # medido: 3,2 tok/s en la Pi 4 de 4 GB
+        "model_alt": "qwen3:4b (solo con una Pi de 8 GB)", "locked": False,
         "blurb": "Arma plantillas y mini-apps a partir del plan.",
         "traits": {"curiosidad": 60, "cautela": 40, "locuacidad": 45, "orden": 80, "humor": 35},
         "stats": {"mood": 70, "energy": 100, "know": 0},
